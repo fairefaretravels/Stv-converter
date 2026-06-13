@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Pool — STV Radiomeltdown Signal Converter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0B0D10;
+    --panel: #15181C;
+    --panel-edge: #232830;
+    --text: #EDE7DC;
+    --text-dim: #9AA0A8;
+    --accent: #FF8A3D;
+    --live: #5CE1B8;
+    --led-off: #2E3238;
+    --error: #FF5C5C;
+  }
+
+  *{ box-sizing: border-box; }
+
+  html, body{
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body{
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background-image:
+      radial-gradient(ellipse at top left, rgba(255,138,61,0.06), transparent 55%),
+      radial-gradient(ellipse at bottom right, rgba(92,225,184,0.05), transparent 55%),
+      linear-gradient(rgba(11,13,16,0.88), rgba(11,13,16,0.88)),
+      url("convert-pic.jpeg");
+    background-size: cover, cover, cover, cover;
+    background-position: center, center, center, center;
+    background-attachment: fixed, fixed, fixed, fixed;
+  }
+
+  .console{
+    width: 100%;
+    max-width: 760px;
+    border: 1px solid var(--panel-edge);
+    background: var(--panel);
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 30px 80px -40px rgba(0,0,0,0.9);
+  }
+
+  .console__header{
+    padding: 28px 28px 20px;
+    border-bottom: 1px solid var(--panel-edge);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .console__brand{
+    font-family: 'Big Shoulders Display', sans-serif;
+    font-weight: 800;
+    font-size: clamp(28px, 6vw, 40px);
+    line-height: 1;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin: 0;
+  }
+
+  .console__brand span{
+    color: var(--accent);
+  }
+
+  .console__sub{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin: 6px 0 0;
+  }
+
+  .onair{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--live);
+    white-space: nowrap;
+    padding-top: 6px;
+  }
+
+  .onair__dot{
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--live);
+    box-shadow: 0 0 0 0 rgba(92,225,184,0.6);
+    animation: pulse 2.2s ease-out infinite;
+  }
+
+  @keyframes pulse{
+    0%   { box-shadow: 0 0 0 0 rgba(92,225,184,0.55); }
+    70%  { box-shadow: 0 0 0 8px rgba(92,225,184,0); }
+    100% { box-shadow: 0 0 0 0 rgba(92,225,184,0); }
+  }
+
+  .console__body{
+    padding: 24px 28px 28px;
+  }
+
+  .drop{
+    border: 1.5px dashed var(--panel-edge);
+    border-radius: 4px;
+    padding: 36px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+    background: rgba(255,255,255,0.012);
+  }
+
+  .drop:hover,
+  .drop:focus-visible{
+    border-color: var(--accent);
+    background: rgba(255,138,61,0.05);
+    outline: none;
+  }
+
+  .drop.is-dragover{
+    border-color: var(--live);
+    background: rgba(92,225,184,0.06);
+  }
+
+  .drop__title{
+    font-family: 'Big Shoulders Display', sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 0 0 6px;
+  }
+
+  .drop__sub{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin: 0;
+  }
+
+  .drop__sub b{ color: var(--text); }
+
+  .drop input{
+    display: none;
+  }
+
+  .status-line{
+    margin: 16px 0 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    min-height: 16px;
+  }
+
+  .status-line.is-error{
+    color: var(--error);
+  }
+
+  .channels{
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 20px;
+  }
+
+  .channel{
+    border: 1px solid var(--panel-edge);
+    border-radius: 4px;
+    padding: 14px 16px;
+    background: rgba(255,255,255,0.012);
+  }
+
+  .channel__top{
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .channel__id{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .channel__name{
+    font-size: 13px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .channel__route{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .meter{
+    --pct: 0%;
+    height: 14px;
+    border-radius: 2px;
+    background: var(--led-off);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .meter__fill{
+    height: 100%;
+    width: var(--pct);
+    background: repeating-linear-gradient(
+      90deg,
+      var(--live) 0px,
+      var(--live) 6px,
+      var(--bg) 6px,
+      var(--bg) 9px
+    );
+    transition: width 0.25s ease;
+  }
+
+  .channel.is-error .meter__fill{
+    background: repeating-linear-gradient(
+      90deg,
+      var(--error) 0px,
+      var(--error) 6px,
+      var(--bg) 6px,
+      var(--bg) 9px
+    );
+  }
+
+  .channel__bottom{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .channel__download{
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--bg);
+    background: var(--live);
+    border: none;
+    border-radius: 2px;
+    padding: 7px 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-decoration: none;
+    cursor: pointer;
+    transition: opacity 0.15s ease, transform 0.1s ease;
+  }
+
+  .channel__download[hidden]{
+    display: none;
+  }
+
+  .channel__download:hover{
+    opacity: 0.85;
+  }
+
+  .channel__download:active{
+    transform: translateY(1px);
+  }
+
+  .console__footer{
+    border-top: 1px solid var(--panel-edge);
+    padding: 16px 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+
+  .console__footer a{
+    color: var(--text-dim);
+    text-decoration: none;
+    border-bottom: 1px solid var(--panel-edge);
+  }
+
+  .console__footer a:hover{
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .onair__dot{ animation: none; }
+    .meter__fill{ transition: none; }
+  }
+
+  @media (max-width: 480px){
+    .console__header{ flex-direction: column; }
+    .channel__top{ flex-wrap: wrap; }
+    .channel__route{ width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<main class="console">
+  <header class="console__header">
+    <div>
+      <h1 class="console__brand">The <span>Pool</span></h1>
+      <p class="console__sub">STV Radiomeltdown · Signal Converter</p>
+    </div>
+    <div class="onair"><span class="onair__dot" aria-hidden="true"></span> Ready to receive</div>
+  </header>
+
+  <div class="console__body">
+    <label class="drop" id="drop" tabindex="0">
+      <p class="drop__title">Drop tracks or clips here</p>
+      <p class="drop__sub">or tap to browse — <b>audio → MP3</b>, <b>video → MP4</b></p>
+      <input type="file" id="fileInput" accept="audio/*,video/*" multiple>
+    </label>
+
+    <p class="status-line" id="statusLine">Engine on standby — loads when you add your first file.</p>
+
+    <div class="channels" id="channels"></div>
+  </div>
+
+  <footer class="console__footer">
+    <span>G4E Movement Studio · Lithonia, GA</span>
+    <a href="https://fairefaretravels.github.io/radiomeltdownorg/" target="_blank" rel="noopener">Back to The Static</a>
+  </footer>
+</main>
+
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+<script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
+<script>
+  const { FFmpeg } = FFmpegWASM;
+  const { fetchFile, toBlobURL } = FFmpegUtil;
+
+  const dropEl = document.getElementById('drop');
+  const inputEl = document.getElementById('fileInput');
+  const channelsEl = document.getElementById('channels');
+  const statusEl = document.getElementById('statusLine');
+
+  let ffmpeg = null;
+  let ffmpegLoading = null;
+  let channelCount = 0;
+  const queue = [];
+  let processing = false;
+
+  function setStatus(text, isError){
+    statusEl.textContent = text;
+    statusEl.classList.toggle('is-error', !!isError);
+  }
+
+  async function getFFmpeg(){
+    if (ffmpeg) return ffmpeg;
+    if (ffmpegLoading) return ffmpegLoading;
+
+    ffmpegLoading = (async () => {
+      setStatus('Loading conversion engine (one-time, ~30MB)…');
+      const instance = new FFmpeg();
+      const base = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+      instance.on('log', () => {});
+      await instance.load({
+        coreURL: await toBlobURL(`${base}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, 'application/wasm'),
+      });
+      ffmpeg = instance;
+      setStatus('Engine ready. Drop files to convert.');
+      return instance;
+    })();
+
+    return ffmpegLoading;
+  }
+
+  function isAudioFile(file){
+    if (file.type) return file.type.startsWith('audio/');
+    return /\.(mp3|wav|m4a|aac|flac|ogg|wma|aiff)$/i.test(file.name);
+  }
+
+  function extOf(name){
+    const m = name.match(/\.([a-zA-Z0-9]+)$/);
+    return m ? m[1].toLowerCase() : 'dat';
+  }
+
+  function formatBytes(bytes){
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function createChannel(file){
+    channelCount += 1;
+    const id = `CH-${String(channelCount).padStart(2, '0')}`;
+    const audio = isAudioFile(file);
+    const targetExt = audio ? 'mp3' : 'mp4';
+    const sourceExt = extOf(file.name);
+
+    const el = document.createElement('div');
+    el.className = 'channel';
+    el.innerHTML = `
+      <div class="channel__top">
+        <span class="channel__id">${id}</span>
+        <span class="channel__name" title="${file.name}">${file.name}</span>
+        <span class="channel__route">${sourceExt} → ${targetExt}</span>
+      </div>
+      <div class="meter"><div class="meter__fill"></div></div>
+      <div class="channel__bottom">
+        <span class="channel__state">Queued — ${formatBytes(file.size)}</span>
+        <a class="channel__download" download hidden>Download</a>
+      </div>
+    `;
+    channelsEl.appendChild(el);
+
+    return {
+      file, audio, sourceExt, targetExt,
+      el,
+      fill: el.querySelector('.meter__fill'),
+      state: el.querySelector('.channel__state'),
+      download: el.querySelector('.channel__download'),
+    };
+  }
+
+  function setProgress(channel, pct){
+    channel.fill.style.setProperty('--pct', `${Math.max(0, Math.min(100, pct))}%`);
+    channel.el.style.setProperty('--pct', `${Math.max(0, Math.min(100, pct))}%`);
+    channel.fill.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+  }
+
+  async function processChannel(channel){
+    const { file, audio, sourceExt, targetExt } = channel;
+    channel.state.textContent = 'Loading engine…';
+    setProgress(channel, 2);
+
+    let engine;
+    try{
+      engine = await getFFmpeg();
+    }catch(err){
+      channel.el.classList.add('is-error');
+      channel.state.textContent = 'Engine failed to load — check connection and retry.';
+      setStatus('Could not load the conversion engine.', true);
+      return;
+    }
+
+    const inputName = `input_${channelCount}.${sourceExt}`;
+    const outputName = `output_${channelCount}.${targetExt}`;
+
+    const onProgress = ({ progress }) => {
+      if (typeof progress === 'number' && !Number.isNaN(progress)){
+        setProgress(channel, Math.round(progress * 100));
+      }
+    };
+    engine.on('progress', onProgress);
+
+    try{
+      channel.state.textContent = 'Reading file…';
+      setProgress(channel, 5);
+      await engine.writeFile(inputName, await fetchFile(file));
+
+      channel.state.textContent = 'Converting…';
+
+      const args = audio
+        ? ['-i', inputName, '-vn', '-b:a', '192k', outputName]
+        : ['-i', inputName, '-c:v', 'libx264', '-preset', 'fast', '-crf', '23', '-c:a', 'aac', '-movflags', '+faststart', outputName];
+
+      await engine.exec(args);
+
+      const data = await engine.readFile(outputName);
+      const blob = new Blob([data.buffer], { type: audio ? 'audio/mpeg' : 'video/mp4' });
+      const url = URL.createObjectURL(blob);
+
+      const baseName = file.name.replace(/\.[^.]+$/, '');
+      channel.download.href = url;
+      channel.download.download = `${baseName}.${targetExt}`;
+      channel.download.hidden = false;
+
+      setProgress(channel, 100);
+      channel.state.textContent = `Done — ${formatBytes(blob.size)}`;
+
+      await engine.deleteFile(inputName);
+      await engine.deleteFile(outputName);
+    }catch(err){
+      channel.el.classList.add('is-error');
+      channel.state.textContent = 'Conversion failed — try a different file or format.';
+      setProgress(channel, 100);
+    }finally{
+      engine.off('progress', onProgress);
+    }
+  }
+
+  async function runQueue(){
+    if (processing) return;
+    processing = true;
+    while (queue.length){
+      const channel = queue.shift();
+      await processChannel(channel);
+    }
+    processing = false;
+    setStatus('All clear. Drop more files anytime.');
+  }
+
+  function handleFiles(fileList){
+    const files = Array.from(fileList).filter(f => isAudioFile(f) || f.type.startsWith('video/') || /\.(mp4|mov|mkv|avi|webm|m4v|flv)$/i.test(f.name));
+    if (!files.length){
+      setStatus('No audio or video files recognized in that drop.', true);
+      return;
+    }
+    files.forEach(file => {
+      const channel = createChannel(file);
+      queue.push(channel);
+    });
+    runQueue();
+  }
+
+  inputEl.addEventListener('change', (e) => {
+    if (e.target.files.length) handleFiles(e.target.files);
+    inputEl.value = '';
+  });
+
+  dropEl.addEventListener('click', (e) => {
+    if (e.target !== inputEl) inputEl.click();
+  });
+
+  dropEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' '){
+      e.preventDefault();
+      inputEl.click();
+    }
+  });
+
+  ['dragenter', 'dragover'].forEach(evt => {
+    dropEl.addEventListener(evt, (e) => {
+      e.preventDefault();
+      dropEl.classList.add('is-dragover');
+    });
+  });
+
+  ['dragleave', 'drop'].forEach(evt => {
+    dropEl.addEventListener(evt, (e) => {
+      e.preventDefault();
+      dropEl.classList.remove('is-dragover');
+    });
+  });
+
+  dropEl.addEventListener('drop', (e) => {
+    if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
+  });
+</script>
+
+</body>
+</html>
